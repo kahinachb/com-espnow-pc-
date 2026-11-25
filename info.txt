@@ -1,0 +1,62 @@
+semelle alumé, esp32 branché au pc :
+televerser du code du code :  pio run -d "codePlusieursPatchs/TX4Patchs/" --target upload --upload-port /dev/ttyACM0
+ pio device monitor --port /dev/ttyACM0 --baud 115200
+
+
+python process_data/insole_data/calculerTareFX29.py tare_fx29_gauche.bin --foot gauche
+
+save la data : picocom -b 2000000 /dev/ttyACM1 --log dataSemelle.bin
+python3 codePlusieursPatchs/decodageToCSV.py dataSemelle.bin datasemelle.csv ( --tare-file tare1308/tare_fx29_gauche.json --calibrate-imu
+)
+python codePlusieursPatchs/plotForces.py datasemelle.csv
+python3 codePlusieursPatchs/plotMagnetometer.py datasemelle.csv
+###################################################################### MANIP
+enregister les données semelles + force plates :
+python3 bertec-forceplate-linux//bertec_record_wrench_csv_multiprocess.py \
+  --port /dev/ttyUSB0 \
+  --esp-port /dev/ttyACM0 \
+  --seconds 30 \
+  --zero \
+  --out raw_manip1308/wrench1.csv \
+  --insoles-bin raw_manip1308/test1.bin
+
+
+  decoder le binaire avec la tare et calib imu: 
+  python3 codePlusieursPatchs/decodageToCSV.py raw_manip1308/test1.bin raw_manip1308/test1.csv --tare-file tare1308/tare_fx29_gauche.json --calibrate-imu
+
+  synchroniser les deux fichiers csv :
+  (python3 codePlusieursPatchs/postprocessSignal.py test1.csv wrench1.csv --out-dir processed )
+  python3 codePlusieursPatchs/synchronizeSignal.py \
+  raw_manip1308/batch1.csv \
+  raw_manip1308/batch1_pf.csv
+
+
+  ploter les données sychroniser:
+  python codePlusieursPatchs/plotSyncedForces.py raw_manip1308/synchronized/batch2_synced.csv raw_manip1308/synchronized/batch2_synced_pf.csv --show
+
+###################################################################"
+  affichage live : 
+   python3 codePlusieursPatchs/livePlotForces.py  
+    --port /dev/ttyACM0   --tare-file tare_fx29_gauche.json   
+    --window-seconds 5   --plot-hz 15
+
+  live pf + semelle gauche
+  python3 bertec_live_plot_wrench_insoles.py \
+  --port /dev/ttyUSB0 \
+  --esp-port /dev/ttyACM0 \
+  --tare-file ../tare_fx29_gauche.json \
+  --window-seconds 5 \
+  --plot-hz 15
+
+live 2 fp et 2 semelles
+python3 bertec-forceplate-linux/bertec_live_plot_wrench_insoles.py \
+  --port /dev/ttyUSB0 \
+  --port2 /dev/ttyUSB1 \
+  --esp-port /dev/ttyACM0 \
+  --tare-left tare1408_gauche.json \
+  --tare-right tare1408_droit.json 
+
+
+
+  manip0409 : 3 a verifier  et 5
+  manipcach 4 

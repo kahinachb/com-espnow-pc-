@@ -33,7 +33,7 @@ digitalWrite(DE_RE_PIN, LOW); // Mode réception
 ## Comment les microcontrôleurs communiquent entre eux ?
 Pour que le module de communication récupère toutes les données de la semelle pour ensuite les envoyer vers le PC, il envoie un signal "top départ" (ici un nombre sur un octet) sur le bus RS485, les 4 STM32 étant en mode écoute, ils commutent en mode écriture après avoir reçu le top départ.  
 Mais attention : chaque STM32 possède un délai propre à leur numéro de patch, cela veut dire que c'est en premier le talon qui passe en mode écriture pour envoyer les données de la semelle, en un temps inférieur à 100µs. Après le délai imposé pour le deuxième patch, c'est à son tour d'envoyer ses données, ainsi de suite.  
-Donc pour avoir une fréquence de communication de 250 Hz, le module de communication envoie son top départ toutes les 4000 µs.  
+Pour avoir une fréquence de communication de 200 Hz, le module de communication envoie son top départ toutes les 5000 µs.  
 
 ### Etapes lors de la communication
 1. Les semelles sont allumées, rien ne se passe.  

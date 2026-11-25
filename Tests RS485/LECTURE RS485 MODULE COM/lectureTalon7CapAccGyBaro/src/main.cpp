@@ -56,7 +56,7 @@ void receive_data() {
 }
 
 void loop() {
-  //receive_data();
+  receive_data();
   Serial0.write(5);
   Serial0.flush();
 }

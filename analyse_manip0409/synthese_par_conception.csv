@@ -1,0 +1,5 @@
+,biais_N,biais_N,biais_pct,biais_pct,mae_N,mae_N,rmse_N,rmse_N,correlation_r,correlation_r,pente_regression,pente_regression
+,mean,std,mean,std,mean,std,mean,std,mean,std,mean,std
+conception,,,,,,,,,,,,
+avec_cache,26.841769,10.425431,5.761267,2.307624,35.859003,9.369553,41.863775,11.292703,0.951912,0.086942,0.828422,0.083953
+sans_cache,-67.630389,11.591733,-13.947638,1.445494,70.482388,14.273729,85.018478,21.445152,0.957879,0.070739,0.676272,0.039516

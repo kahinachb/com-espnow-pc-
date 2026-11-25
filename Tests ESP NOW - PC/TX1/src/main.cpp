@@ -1,7 +1,7 @@
 #include <esp_now.h>
 #include <WiFi.h>
 
-uint8_t broadcastAddress[] = {0x8C, 0xBF, 0xEA, 0xCC, 0xA8, 0xDC}; // Adresse MAC du récepteur
+uint8_t broadcastAddress[] = {0x54, 0x32, 0x04, 0x21, 0x8E, 0x44}; // Adresse MAC du récepteur
 unsigned long lastMicros = 0;
 unsigned long lastMillisCharge = 0;
 const unsigned long interval = 3333; // en µs, 2000µs correspond à 500Hz, 10000µs correspond à 100Hz
@@ -18,8 +18,11 @@ struct_message myData;
 
 esp_now_peer_info_t peerInfo;
 
-void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
-  // S'appelle à la bonne réception de la trame envoyée
+void OnDataSent(const wifi_tx_info_t *tx_info,
+                esp_now_send_status_t status)
+{
+  (void)tx_info;
+  (void)status;
 }
 
 void setup() {

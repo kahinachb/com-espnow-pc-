@@ -1,0 +1,3 @@
+acquisition,n_total,n_charge,duree_s,moyenne_bertec_N,moyenne_semelle_N,biais_N,biais_pct,mae_N,rmse_N,mediane_erreur_N,ecart_type_erreur_N,correlation_r,pente_regression,ordonnee_origine_N
+sans_cache,11377,10574,57.022968,437.857125,364.298064,-73.559061,-16.799786,75.298108,83.775837,-90.773470,40.094982,0.992276,0.773416,25.652457
+avec_cache,11461,9795,57.413159,403.728943,395.086147,-8.642797,-2.140742,17.239802,21.472341,-8.755559,19.657134,0.994896,0.960347,7.366271

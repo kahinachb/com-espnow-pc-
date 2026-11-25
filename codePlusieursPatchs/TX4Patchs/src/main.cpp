@@ -11,16 +11,19 @@ Chaque trame est lue, mais l'envoi sans fil en ESP NOW se fait que lorsque les 4
 la fréquence de 200 Hz
 */
 #define DE_RE_PIN 1                                                // GPIO1 pour contrôler DE/RE du transceiver RS485
-uint8_t broadcastAddress[] = {0xB4, 0xE6, 0x2D, 0xB5, 0x9F, 0x85}; // Adresse MAC du récepteur ESP WROOM 32
+// uint8_t broadcastAddress[] = {0xB4, 0xE6, 0x2D, 0xB5, 0x9F, 0x85}; // Adresse MAC du récepteur ESP WROOM 32
 //uint8_t broadcastAddress[] = {0xDC, 0xDA, 0x0C, 0xA1, 0x95, 0xBC}; // Adresse MAC du récepteur ESP32C3
+uint8_t broadcastAddress[] = {0x54, 0x32, 0x04, 0x21, 0x8E, 0x44}; //esp 32 c6 seed xiao 54:32:04:21:8e:44
 
 unsigned long lastMillisCharge = 0;
 const unsigned long intervalleCharge = 5000;    // intervalle en ms de la vérification du mode recharge (Toutes les 5 secondes, on vérifie si l'ESP est branché au PC)
 const unsigned long intervalleTopDepart = 5000; // intervalle en µs qui correspond à la période entre chaque envoi du top départ qui permet de récupèrer les 4 trames respectives des patchs
+const uint32_t retardDemarragePiedDroitUs = 2500; // Une demi-période : la droite démarre entre deux cycles gauches.
 
 bool piedDroit = false; // A CHANGER SELON LA SEMELLE UTILISEE, true => semelle droite, false => semelle gauche.
 
-bool start = false;
+volatile bool start = false;
+volatile uint32_t instantSynchronisationUs = 0;
 bool modeRecharge = false; // true si l'ESP est branché au pc, false sinon
 
 typedef struct struct_message
@@ -34,18 +37,35 @@ typedef struct struct_combined_message
 } struct_combined_message;
 
 struct_combined_message combinedData;
-int trameCount = 0; // Compteur pour le nombre de trames stockées
+uint8_t receivedPatchMask = 0;
+constexpr uint8_t ALL_PATCHES_RECEIVED = 0b00001111;
 
 esp_now_peer_info_t peerInfo;
 
-void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status)
+bool configurerDebitEspNow(const uint8_t *peerAddress)
 {
-  // S'appelle à la bonne réception de la trame envoyée
+  esp_now_rate_config_t rateConfig = {};
+  rateConfig.phymode = WIFI_PHY_MODE_11G;
+  rateConfig.rate = WIFI_PHY_RATE_6M;
+  rateConfig.ersu = false;
+  rateConfig.dcm = false;
+
+  return esp_now_set_peer_rate_config(peerAddress, &rateConfig) == ESP_OK;
+}
+
+void OnDataSent(const wifi_tx_info_t *tx_info,
+                esp_now_send_status_t status)
+{
+  (void)tx_info;
+  (void)status;
 }
 void OnDataRecv(const uint8_t *mac_addr, const uint8_t *incomingData, int len)
 {
-  if (incomingData[0] == 100)
+  (void)mac_addr;
+
+  if (len == 1 && incomingData[0] == 100)
   {
+    instantSynchronisationUs = micros();
     start = true;
   }
 }
@@ -61,9 +81,12 @@ void gestionCharge() // Fonction pour la gestion de la détection d'alimentation
       VCC_value += analogReadMilliVolts(A0); // Read and accumulate ADC voltage
     }
     float VCC_valueF = 2 * VCC_value / 16 / 1000.0; // Adjust for 1:2 divider and convert to volts
+    Serial.println("VCC_valueF");
+    Serial.println(VCC_valueF, 3);
     if (VCC_valueF > 2.5)
     {
       modeRecharge = true; // L'ESP est branché au PC
+      Serial.println("mode recharge");
       //start=false;
     }
     else
@@ -75,11 +98,20 @@ void gestionCharge() // Fonction pour la gestion de la détection d'alimentation
 
 void envoiTopDepart() // Fonction pour l'envoi du top départ aux 4 patchs
 {
-  static int oldTime = micros();
-  int newTime = micros();
+  static uint32_t oldTime = micros();
+  const uint32_t newTime = micros();
+
+  // La droite attend une demi-période après le top ESP-NOW initial. Les deux
+  // semelles conservent ensuite une période d'acquisition de 5 ms (200 Hz).
+  if (piedDroit &&
+      (uint32_t)(newTime - instantSynchronisationUs) < retardDemarragePiedDroitUs)
+  {
+    return;
+  }
+
   if (newTime - oldTime >= intervalleTopDepart && !Serial0.available() && !modeRecharge)
-  { // Si période de 4000 µs atteinte, liaison RS485 disponible à l'écriture et non mode recharge
-    // Envoi du top départ à 250 Hz (période 4000µs)
+  { // Si la période de 5000 µs est atteinte, liaison RS485 disponible à l'écriture et hors mode recharge
+    // Envoi du top départ à 200 Hz (période de 5000 µs).
     oldTime = newTime;
     digitalWrite(DE_RE_PIN, HIGH); // Mode transmission
     if (piedDroit)
@@ -99,6 +131,7 @@ void envoiTopDepart() // Fonction pour l'envoi du top départ aux 4 patchs
 void setup()
 {Serial.begin(115200);
   Serial0.begin(2000000);
+  Serial0.setTimeout(5);
   if (piedDroit)
   {
     Serial2.begin(2000000);
@@ -116,6 +149,10 @@ void setup()
   peerInfo.encrypt = false;
 
   if (esp_now_add_peer(&peerInfo) != ESP_OK)
+  {
+    return;
+  }
+  if (!configurerDebitEspNow(broadcastAddress))
   {
     return;
   }
@@ -161,8 +198,20 @@ void loop()
       if (trameType != -1)
       {
         byte data[34];
+        if (Serial0.readBytes(data, 34) != 34) {// Lecture des 34 octets de data après l'entête
+          receivedPatchMask = 0;
+          return;
+        }
+
+        // Le patch 1 marque le début d'un nouveau cycle. Si le cycle
+        // précédent était incomplet, ses trames sont abandonnées afin de ne
+        // jamais mélanger deux cycles dans le même paquet ESP-NOW.
+        if (trameType == 0 && receivedPatchMask != 0)
+        {
+          receivedPatchMask = 0;
+        }
+
         uint32_t tempsEcoule=micros()-tempsDepart;
-        Serial0.readBytes(data, 34); // Lecture des 34 octets de data après l'entête
         // Calculer la position de la trame dans le tableau combiné
         int startPos = trameType * 36;
         combinedData.bytes[startPos] = headers[0]; // Stockage des entêtes
@@ -176,13 +225,14 @@ void loop()
         combinedData.bytes[146]=(tempsEcoule>>8)&0xFF;
         combinedData.bytes[147]=tempsEcoule&0xFF;
 
-        trameCount++;
+        // Un même patch reçu plusieurs fois ne compte qu'une seule fois.
+        receivedPatchMask |= (1U << trameType);
 
-        // Envoyer toutes les trames ensemble si toutes ont été reçues
-        if (trameCount == 4)
-        { // Si les 4 trames des patchs (1, 2, 3 et 4) reçues, alors envoi des 4 trames d'un coup
+        // Envoyer uniquement après réception des quatre patchs distincts.
+        if (receivedPatchMask == ALL_PATCHES_RECEIVED)
+        {
           esp_now_send(broadcastAddress, (uint8_t *)&combinedData, 148);
-          trameCount = 0; // Réinitialiser le compteur après l'envoi
+          receivedPatchMask = 0;
         }
       }
     }

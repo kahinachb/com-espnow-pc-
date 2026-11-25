@@ -1,0 +1,15 @@
+
+# Local data and environments (never published)
+manip/
+.venv*/
+__pycache__/
+*.pyc
+.codex-build/
+.codex-finalizer/
+.vscode/
+bertec-forceplate-linux/
+.pio/
+process_data/
+delete_folder.py
+transfert.py
+Documentation/2025_PLANSON_Edik_Rapport_Stage_LAAS-CNRS.pdf

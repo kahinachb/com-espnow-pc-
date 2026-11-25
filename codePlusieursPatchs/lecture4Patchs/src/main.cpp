@@ -26,7 +26,7 @@ typedef struct struct_combined_message
 
 struct_combined_message combinedData;
 int trameCount = 0; // Compteur pour le nombre de trames stockées
-int16_t mx, my, mz;
+int32_t mx, my, mz;
 
 void envoiTopDepart() // Fonction pour l'envoi du top départ aux 4 patchs
 {
@@ -53,6 +53,7 @@ void setup()
 
 void loop()
 {
+  // Serial.println("waiting");
   static int cpt;
   if (Serial0.available()) // Si il y a des données dispo à la lecture et que l'ESP n'est pas branché au PC
   {                        // On lit les données et on les stocke
@@ -61,7 +62,7 @@ void loop()
 
     int trameType = -1;
     // DECOMMENTER / COMMENTER CE QUE VOUS VOULEZ 
-    /*
+    
     if (headers[0] == 1 && headers[1] == 2)
       trameType = 0; // Identification du patch
      if (headers[0] == 3 && headers[1] == 4)
@@ -71,13 +72,13 @@ void loop()
      if (headers[0] == 7 && headers[1] == 8)
       trameType = 3;
       cpt++;
-    */
-    //if (headers[0] == 9 && headers[1] == 10)
-    //  trameType = 0; // Identification du patch
-    //if (headers[0] == 11 && headers[1] == 12)
-    //  trameType = 1;
-   // if (headers[0] == 13 && headers[1] == 14)
-   //   trameType = 2;
+    
+    if (headers[0] == 9 && headers[1] == 10)
+     trameType = 0; // Identification du patch
+    if (headers[0] == 11 && headers[1] == 12)
+     trameType = 1;
+   if (headers[0] == 13 && headers[1] == 14)
+     trameType = 2;
     if (headers[0] == 15 && headers[1] == 16)
       trameType = 3;
     cpt++;
@@ -122,7 +123,7 @@ void loop()
       Serial.print(force3);
       Serial.print(" ");
       Serial.println(force4);
-      /*
+     
       Serial.print(" ");
       Serial.print(accX);
       Serial.print(" ");
@@ -139,9 +140,9 @@ void loop()
       Serial.print(" ");
       Serial.print(press);
       Serial.println(" ");
-      */
+      
 
-      /*
+      
       uint8_t x0 = data[27];
       uint8_t x1 = data[28];
       uint8_t y0 = data[29];
@@ -155,9 +156,10 @@ void loop()
       mx = (int32_t)x_raw - 131072; // raw values
       my = (int32_t)y_raw - 131072;
       mz = (int32_t)z_raw - 131072;
-      float fx = mx * 0.00625f; // en microteslas sinon *0.0625f;  pour mG milligauss
-      float fy = my * 0.00625f;
-      float fz = mz * 0.00625f;
+      constexpr float MICROTESLA_PER_COUNT = 100.0f / 16384.0f;
+      float fx = mx * MICROTESLA_PER_COUNT;
+      float fy = my * MICROTESLA_PER_COUNT;
+      float fz = mz * MICROTESLA_PER_COUNT;
 
       Serial.print("| X = ");
       Serial.print(fx);
@@ -169,7 +171,7 @@ void loop()
       float norm = sqrt(fx * fx + fy * fy + fz * fz);
       Serial.print("Norme = ");
       Serial.println(norm);
-      */
+      
     }
   }
   envoiTopDepart();
